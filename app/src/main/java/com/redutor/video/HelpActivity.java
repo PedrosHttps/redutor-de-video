@@ -51,13 +51,9 @@ public class HelpActivity extends AppCompatActivity {
         }
 
         findViewById(R.id.back).setOnClickListener(v -> finish());
-        findViewById(R.id.feedback).setOnClickListener(v -> {
-            try {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(FORM_URL)));
-            } catch (ActivityNotFoundException e) {
-                Toast.makeText(this, "Nenhum navegador para abrir o formulário", Toast.LENGTH_SHORT).show();
-            }
-        });
+        findViewById(R.id.feedback).setOnClickListener(v -> open(FORM_URL));
+        findViewById(R.id.github).setOnClickListener(v -> open("https://github.com/PedrosHttps"));
+        findViewById(R.id.web).setOnClickListener(v -> open("https://pedroshttps.github.io/redutor-de-video/"));
 
         try {
             ((TextView) findViewById(R.id.version)).setText("Redutor de Vídeo, versão "
@@ -67,5 +63,13 @@ public class HelpActivity extends AppCompatActivity {
 
         ViewGroup content = findViewById(R.id.content);
         for (int i = 0; i < content.getChildCount(); i++) MainActivity.slideIn(content.getChildAt(i), i * 50L);
+    }
+
+    private void open(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "Nenhum navegador para abrir o link", Toast.LENGTH_SHORT).show();
+        }
     }
 }

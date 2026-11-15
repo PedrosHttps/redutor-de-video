@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write # para publicar o APK em Releases
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,7 +32,21 @@ jobs:
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/redutor.p12
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      - run: mv app/build/outputs/apk/debug/app-debug.apk RedutorDeVideo.apk
       - uses: actions/upload-artifact@v4
         with:
           name: RedutorDeVideo-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: RedutorDeVideo.apk
+      # Cada versionName vira uma Release; o link .../releases/latest/download/RedutorDeVideo.apk sempre baixa a última.
+      - name: Publicar em Releases
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(grep -oP "versionName '\K[^']+" app/build.gradle)
+          if gh release view "v$V" > /dev/null 2>&1; then
+            gh release upload "v$V" RedutorDeVideo.apk --clobber
+          else
+            gh release create "v$V" RedutorDeVideo.apk --title "Redutor de Vídeo $V" \
+              --notes "Baixe o **RedutorDeVideo.apk** abaixo pelo celular e abra para instalar. Atualiza por cima da versão anterior."
+          fi

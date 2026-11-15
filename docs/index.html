@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redutor de Vídeo</title>
+<meta name="description" content="Diminua seus vídeos direto no navegador, sem enviar nada para servidor.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f6f5fb;
+    --surface: #ffffff;
+    --surface-2: #f0eefa;
+    --text: #1c1b22;
+    --muted: #5d5b6b;
+    --border: #e4e1f0;
+    --primary: #5b4be8;
+    --primary-2: #9333ea;
+    --on-primary: #ffffff;
+    --ok: #15803d;
+    --danger: #b42318;
+    --shadow: 0 1px 2px rgba(30, 20, 80, .06), 0 8px 24px rgba(30, 20, 80, .08);
+    --radius: 20px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111018; --surface: #1b1a24; --surface-2: #24222f; --text: #ecebf3; --muted: #a9a6b8;
+      --border: #2f2d3c; --primary: #8b7dff; --primary-2: #c084fc; --on-primary: #14121c;
+      --ok: #4ade80; --danger: #f97066; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111018; --surface: #1b1a24; --surface-2: #24222f; --text: #ecebf3; --muted: #a9a6b8;
+    --border: #2f2d3c; --primary: #8b7dff; --primary-2: #c084fc; --on-primary: #14121c;
+    --ok: #4ade80; --danger: #f97066; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 48px; }
+
+  /* topo */
+  .hero {
+    background: linear-gradient(135deg, #4f46e5, #9333ea);
+    color: #fff; padding: 28px 0 72px; position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; inset: -40% 40% auto -20%; height: 140%;
+    background: radial-gradient(circle, rgba(255,255,255,.18), transparent 60%); pointer-events: none;
+  }
+  .hero .wrap { padding-bottom: 0; display: flex; gap: 16px; align-items: center; position: relative; z-index: 1; }
+  .hero img { width: 56px; height: 56px; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,.25); flex: none; }
+  .hero h1 { margin: 0; font-size: clamp(1.5rem, 5vw, 2rem); line-height: 1.15; letter-spacing: -.01em; }
+  .hero p { margin: 4px 0 0; opacity: .9; }
+  .hero .grow { flex: 1; min-width: 0; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px;
+    background: rgba(255,255,255,.18); color: #fff; text-decoration: none; font-weight: 600; font-size: .9rem;
+    border: 1px solid rgba(255,255,255,.3); white-space: nowrap;
+  }
+  .pill:hover { background: rgba(255,255,255,.28); }
+  main.wrap { margin-top: -48px; position: relative; z-index: 2; }
+
+  /* cartões */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 20px; margin-bottom: 14px;
+  }
+  .card h2 { margin: 0 0 12px; font-size: 1.1rem; }
+  .muted { color: var(--muted); }
+  .enter { animation: up .5s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes up { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+
+  .warn { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+
+  /* botões */
+  button, .btn {
+    font: inherit; font-weight: 600; border: 0; border-radius: 14px; cursor: pointer;
+    min-height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    text-decoration: none; transition: transform .12s ease, filter .2s ease, opacity .2s;
+  }
+  button:active, .btn:active { transform: scale(.97); }
+  button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  .primary { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #fff; }
+  .primary:not(:disabled):hover { filter: brightness(1.08); }
+  .tonal { background: var(--surface-2); color: var(--primary); }
+  .ghost { background: transparent; color: var(--primary); }
+  .block { width: 100%; }
+  .big { min-height: 60px; font-size: 1.05rem; border-radius: 18px; }
+  :focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 60%, transparent); outline-offset: 2px; }
+
+  /* área de soltar */
+  .drop {
+    display: block; margin-top: 8px;
+    border: 2px dashed var(--border); border-radius: 16px; padding: 22px 16px; text-align: center;
+    transition: border-color .2s, background .2s; cursor: pointer;
+  }
+  .drop.over { border-color: var(--primary); background: var(--surface-2); }
+  .drop strong { color: var(--primary); }
+
+  /* lista */
+  .row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+  .row:first-child { border-top: 0; }
+  .thumb {
+    width: 88px; height: 58px; border-radius: 12px; background: var(--surface-2) center/cover no-repeat; flex: none;
+  }
+  .info { flex: 1; min-width: 0; }
+  .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .details { font-size: .85rem; color: var(--muted); }
+  .status { font-size: .85rem; color: var(--primary); }
+  .row .x { min-height: 40px; width: 40px; padding: 0; border-radius: 12px; background: transparent; color: var(--muted); font-size: 1.1rem; }
+  .row .x:hover { background: var(--surface-2); }
+  .row .dl { min-height: 40px; padding: 0 12px; }
+
+  /* níveis */
+  .levels { display: grid; gap: 10px; }
+  .level {
+    display: flex; gap: 12px; align-items: center; padding: 14px; border: 2px solid var(--border);
+    border-radius: 16px; cursor: pointer; transition: border-color .2s, background .2s;
+  }
+  .level:has(input:checked) { border-color: var(--primary); background: var(--surface-2); }
+  .level input { accent-color: var(--primary); width: 20px; height: 20px; margin: 0; flex: none; }
+  .level b { display: block; }
+  .level small { color: var(--muted); }
+  .level .est { margin-left: auto; font-weight: 700; color: var(--primary); white-space: nowrap; }
+
+  /* progresso circular */
+  .ring { display: grid; place-items: center; position: relative; width: 176px; height: 176px; margin: 8px auto 12px; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .track { stroke: var(--surface-2); }
+  .ring .bar { stroke: url(#grad); stroke-linecap: round; transition: stroke-dashoffset .45s ease; }
+  .ring span { position: absolute; font-size: 2rem; font-weight: 700; }
+  .center { text-align: center; }
+
+  /* celebração */
+  .check { width: 84px; height: 84px; margin: 4px auto 8px; display: block; }
+  .pop { animation: pop .8s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes pop { from { transform: scale(0) rotate(-120deg); } to { transform: none; } }
+  .saved { font-size: 1.4rem; font-weight: 700; margin: 0; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .actions > * { flex: 1 1 140px; }
+
+  details { border-top: 1px solid var(--border); padding: 12px 0; }
+  details:first-of-type { border-top: 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  summary::after { content: "+"; color: var(--primary); font-weight: 700; }
+  details[open] summary::after { content: "–"; }
+  details p { margin: 8px 0 0; color: var(--muted); }
+
+  .creator { display: flex; gap: 14px; align-items: center; }
+  .creator img { width: 56px; height: 56px; border-radius: 50%; flex: none; background: var(--surface-2); }
+  footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 18px; }
+  footer a { color: inherit; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b4be8"/><stop offset="1" stop-color="#c084fc"/></linearGradient></defs>
+</svg>
+
+<header class="hero">
+  <div class="wrap">
+    <img src="icon.svg" alt="">
+    <div class="grow">
+      <h1>Redutor de Vídeo</h1>
+      <p>Deixe seus vídeos menores sem perder a qualidade</p>
+    </div>
+    <a class="pill" href="#ajuda">Ajuda</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card warn enter" id="unsupported" hidden>
+    <h2>Seu navegador não consegue reduzir vídeos</h2>
+    <p class="muted" style="margin:0">Use o Chrome, o Edge ou o Safari atualizados, ou baixe o app para Android.</p>
+  </section>
+
+  <section class="card enter" style="animation-delay:.05s">
+    <h2>1. Vídeos</h2>
+    <div id="list"></div>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="video/*" multiple hidden>
+      <div style="font-size:1.8rem" aria-hidden="true">＋</div>
+      <div><strong>Adicionar vídeos</strong> ou arraste para cá</div>
+      <div class="muted" style="font-size:.85rem">Seus vídeos não saem do seu aparelho</div>
+    </label>
+  </section>
+
+  <section class="card enter" style="animation-delay:.1s">
+    <h2>2. Quanto reduzir?</h2>
+    <div class="levels" id="levels"></div>
+  </section>
+
+  <button class="primary block big enter" id="reduce" style="animation-delay:.15s" disabled>Reduzir vídeo</button>
+
+  <section class="card center enter" id="progress" hidden style="margin-top:14px">
+    <div class="ring">
+      <svg width="176" height="176" viewBox="0 0 176 176" aria-hidden="true">
+        <circle class="track" cx="88" cy="88" r="76" fill="none" stroke-width="14"/>
+        <circle class="bar" id="bar" cx="88" cy="88" r="76" fill="none" stroke-width="14"/>
+      </svg>
+      <span id="pct" aria-live="polite">0%</span>
+    </div>
+    <div id="ptext" style="font-weight:600"></div>
+    <p class="muted" style="font-size:.85rem;margin:4px 0 8px">Deixe esta aba aberta até terminar.</p>
+    <button class="ghost" id="cancel">Cancelar</button>
+  </section>
+
+  <section class="card center" id="result" hidden style="margin-top:14px">
+    <svg class="check" id="check" viewBox="0 0 24 24" aria-hidden="true"><path fill="url(#grad)" d="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM10,17l-5,-5 1.41,-1.41L10,14.17l7.59,-7.59L19,8l-9,9z"/></svg>
+    <p class="saved" id="saved"></p>
+    <p class="muted" id="rtext" style="margin:4px 0 0"></p>
+    <div class="actions">
+      <button class="primary" id="downloadAll">Baixar</button>
+      <button class="tonal" id="share" hidden>Compartilhar</button>
+      <button class="ghost" id="again">Reduzir outros</button>
+    </div>
+  </section>
+
+  <section class="card enter" id="ajuda" style="margin-top:28px;animation-delay:.2s">
+    <h2>Ajuda</h2>
+    <details><summary>Como reduzir um vídeo?</summary><p>Toque em Adicionar vídeos (ou arraste), marque o nível e toque em Reduzir. No fim, toque em Baixar.</p></details>
+    <details><summary>Qual nível escolher?</summary><p>Baixa: para guardar com a melhor qualidade. Média: o equilíbrio, boa para a maioria. Alta: para mandar por WhatsApp ou e-mail; o vídeo vai para 720p.</p></details>
+    <details><summary>Meus vídeos são enviados para algum lugar?</summary><p>Não. Tudo acontece no seu próprio navegador; nenhum vídeo é enviado para servidor.</p></details>
+    <details><summary>Posso trocar de aba durante a redução?</summary><p>É melhor não: o navegador pode pausar a página. Mantenha a aba aberta; a tela fica acesa sozinha. Para reduzir em segundo plano, use o app Android.</p></details>
+    <details><summary>Apareceu "Já estava bem compactado"</summary><p>O vídeo original já era bem leve, e regravar não deixaria menor. Tente o nível Alta.</p></details>
+    <details><summary>Deu erro ou não funcionou</summary><p>Atualize o navegador ou tente o Chrome. Vídeos muito grandes (vários GB) podem não caber na memória do navegador; nesse caso, use o app Android.</p></details>
+  </section>
+
+  <section class="card enter" style="animation-delay:.25s">
+    <h2>Críticas e sugestões</h2>
+    <p class="muted" style="margin-top:0">Encontrou um problema ou tem uma ideia para melhorar? Conte para a gente: leva 1 minuto.</p>
+    <a class="btn primary block" href="https://forms.gle/juwkU6g8rt9yD6gH8" target="_blank" rel="noopener">Enviar crítica ou sugestão</a>
+  </section>
+
+  <section class="card enter" style="animation-delay:.3s">
+    <h2>Sobre o criador</h2>
+    <div class="creator">
+      <img src="https://github.com/PedrosHttps.png?size=112" alt="" loading="lazy">
+      <div class="grow" style="flex:1;min-width:0">
+        <b>PedrosHttps</b>
+        <div class="muted" style="font-size:.9rem">Criador do Redutor de Vídeo</div>
+      </div>
+      <a class="btn tonal" href="https://github.com/PedrosHttps" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/PedrosHttps/redutor-de-video/releases/latest/download/RedutorDeVideo.apk">Baixar app Android</a>
+    </div>
+  </section>
+
+  <footer>Código aberto em <a href="https://github.com/PedrosHttps/redutor-de-video">github.com/PedrosHttps/redutor-de-video</a></footer>
+</main>
+
+<script type="module">
+import {
+  Input, Output, Conversion, ConversionCanceledError, BlobSource, BufferTarget,
+  Mp4OutputFormat, ALL_FORMATS, Quality, canEncodeVideo,
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.64.0/dist/bundles/mediabunny.min.mjs';
+
+// Mesmos números do app Android (CompressService.java).
+const FACTORS = [0.55, 0.35, 0.15];
+const LEVELS = [
+  ['Baixa', 'quase sem perda'],
+  ['Média', 'perda pequena'],
+  ['Alta', '720p, ideal para celular'],
+];
+const MIN_BITRATE = 300_000, ALTA_SHORT_SIDE = 720;
+
+const targetBitrate = (src, f) => Math.min(2 ** 31 - 1, Math.max(MIN_BITRATE, Math.floor(src * f)));
+const scaledHeight = (w, h) => {
+  if (w <= 0 || h <= 0 || Math.min(w, h) <= ALTA_SHORT_SIDE) return 0;
+  return w >= h ? ALTA_SHORT_SIDE : Math.round(h * ALTA_SHORT_SIDE / w / 2) * 2;
+};
+const estimate = (v, f) => v.duration > 0 ? targetBitrate(v.bitrate, f) * v.duration / 8 : 0;
+const outputName = (n) => { const d = n.lastIndexOf('.'); return (d > 0 ? n.slice(0, d) : n) + '_reduzido.mp4'; };
+const fmt = (b) => {
+  if (!(b > 0)) return '0 B';
+  const u = ['B', 'KB', 'MB', 'GB']; let i = 0;
+  while (b >= 1000 && i < u.length - 1) { b /= 1000; i++; }
+  return (b >= 100 || i === 0 ? Math.round(b) : b.toFixed(1).replace('.', ',')) + ' ' + u[i];
+};
+const time = (s) => {
+  s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, ss = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+};
+
+// Autoverificação das contas (igual aos testes do app).
+console.assert(targetBitrate(10e6, 0.5) === 5e6 && targetBitrate(1e5, 0.3) === MIN_BITRATE, 'targetBitrate');
+console.assert(scaledHeight(1920, 1080) === 720 && scaledHeight(1080, 1920) === 1280 && scaledHeight(1280, 720) === 0, 'scaledHeight');
+console.assert(outputName('ferias.MP4') === 'ferias_reduzido.mp4' && outputName('video') === 'video_reduzido.mp4', 'outputName');
+
+const $ = (id) => document.getElementById(id);
+const state = { videos: [], level: 1, running: false, conv: null, canceled: false, total: 0, done: 0, wake: null };
+let nextId = 0;
+
+if (!('VideoEncoder' in window)) $('unsupported').hidden = false;
+
+// Níveis
+$('levels').innerHTML = LEVELS.map(([t, d], i) => `
+  <label class="level"><input type="radio" name="level" value="${i}" ${i === 1 ? 'checked' : ''}>
+  <span><b>${t}</b><small>${d}</small></span><span class="est" id="est${i}"></span></label>`).join('');
+$('levels').addEventListener('change', (e) => { state.level = Number(e.target.value); });
+
+// Adicionar vídeos
+const add = (files) => {
+  for (const file of files) {
+    if (!file.type.startsWith('video/') && !/\.(mp4|mov|m4v|mkv|webm|3gp)$/i.test(file.name)) continue;
+    const v = { id: nextId++, file, name: file.name, size: file.size, duration: 0, width: 0, height: 0, bitrate: 0,
+      loaded: false, finished: false, status: '', result: null, resultSize: 0, url: null, el: null };
+    state.videos.push(v);
+    load(v).then(render);
+  }
+  render();
+};
+$('file').addEventListener('change', (e) => { add(e.target.files); e.target.value = ''; });
+const drop = $('drop');
+['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', (e) => { if (!state.running) add(e.dataTransfer.files); });
+
+/** Lê duração, tamanho da imagem e uma miniatura pelo próprio <video> do navegador. */
+function load(v) {
+  return new Promise((resolve) => {
+    const el = document.createElement('video');
+    const url = URL.createObjectURL(v.file);
+    let ended = false;
+    const finish = () => {
+      if (ended) return; ended = true;
+      URL.revokeObjectURL(url); el.removeAttribute('src'); el.load();
+      if (!v.bitrate) v.bitrate = v.duration > 0 ? v.size * 8 / v.duration : 8e6;
+      v.loaded = true; resolve();
+    };
+    el.preload = 'metadata'; el.muted = true; el.playsInline = true;
+    el.onloadedmetadata = () => {
+      v.duration = Number.isFinite(el.duration) ? el.duration : 0;
+      v.width = el.videoWidth; v.height = el.videoHeight;
+      el.currentTime = Math.min(1, v.duration / 2 || 0);
+    };
+    el.onseeked = () => {
+      try {
+        const s = 240 / Math.max(el.videoWidth, el.videoHeight, 1);
+        const c = document.createElement('canvas');
+        c.width = Math.round(el.videoWidth * s); c.height = Math.round(el.videoHeight * s);
+        c.getContext('2d').drawImage(el, 0, 0, c.width, c.height);
+        v.thumb = c.toDataURL('image/jpeg', 0.75);
+      } catch { /* sem miniatura */ }
+      finish();
+    };
+    el.onerror = finish;
+    setTimeout(finish, 10000);
+    el.src = url;
+  });
+}
+
+// Tela
+function render() {
+  const list = $('list');
+  let pending = 0, saved = 0, inSize = 0, outSize = 0, loaded = true;
+  const est = [0, 0, 0];
+  for (const v of state.videos) {
+    if (!v.el) {
+      v.el = document.createElement('div');
+      v.el.className = 'row enter';
+      v.el.innerHTML = `<div class="thumb"></div><div class="info"><div class="name"></div><div class="details"></div>
+        <div class="status"></div></div><a class="btn tonal dl" hidden>Baixar</a>
+        <button class="x" aria-label="Remover vídeo" title="Remover">✕</button>`;
+      v.el.querySelector('.x').onclick = () => remove(v);
+      list.appendChild(v.el);
+    }
+    const q = (s) => v.el.querySelector(s);
+    if (v.thumb) q('.thumb').style.backgroundImage = `url(${v.thumb})`;
+    q('.name').textContent = v.name;
+    q('.details').textContent = [v.width ? `${v.width}×${v.height}` : '', v.duration ? time(v.duration) : '', fmt(v.size)].filter(Boolean).join(' · ');
+    q('.status').textContent = v.status;
+    const dl = q('.dl');
+    dl.hidden = !v.url; if (v.url) { dl.href = v.url; dl.download = outputName(v.name); }
+    q('.x').hidden = state.running;
+    loaded &&= v.loaded;
+    if (!v.finished) { pending++; FACTORS.forEach((f, k) => { est[k] += estimate(v, f); }); }
+    if (v.result) { saved++; inSize += v.size; outSize += v.resultSize; }
+  }
+
+  FACTORS.forEach((_, k) => { $('est' + k).textContent = est[k] > 0 ? '≈ ' + fmt(est[k]) : ''; });
+  document.querySelectorAll('.level input').forEach((i) => { i.disabled = state.running; });
+  drop.hidden = state.running;
+
+  const reduce = $('reduce');
+  reduce.hidden = state.running || (pending === 0 && saved > 0);
+  reduce.disabled = !(pending > 0 && loaded) || !('VideoEncoder' in window);
+  reduce.textContent = !loaded ? 'Lendo vídeos…' : pending > 1 ? `Reduzir ${pending} vídeos` : 'Reduzir vídeo';
+
+  $('progress').hidden = !state.running;
+  const cur = state.conv && state.current ? state.current.progress || 0 : 0;
+  const p = state.total ? Math.round((state.done * 100 + cur) / state.total) : 0;
+  const C = 2 * Math.PI * 76;
+  $('bar').style.strokeDasharray = C;
+  $('bar').style.strokeDashoffset = C * (1 - p / 100);
+  $('pct').textContent = p + '%';
+  const step = state.current?.status || '';
+  $('ptext').textContent = state.total > 1 ? `Vídeo ${Math.min(state.done + 1, state.total)} de ${state.total} · ${step}` : step;
+
+  const result = $('result');
+  const show = !state.running && saved > 0;
+  if (saved > 0) {
+    $('rtext').textContent = `${saved > 1 ? saved + ' vídeos · ' : ''}${fmt(inSize)} → ${fmt(outSize)} (${Math.round(100 - outSize * 100 / inSize)}% menor)`;
+    $('downloadAll').textContent = saved > 1 ? `Baixar ${saved} vídeos` : 'Baixar';
+    $('share').hidden = !canShare();
+  }
+  if (show && result.hidden) celebrate(inSize - outSize);
+  result.hidden = !show;
+}
+
+function remove(v) {
+  if (v.url) URL.revokeObjectURL(v.url);
+  v.el.remove();
+  state.videos = state.videos.filter((x) => x !== v);
+  render();
+}
+
+function celebrate(bytes) {
+  const check = $('check');
+  check.classList.remove('pop'); void check.offsetWidth; check.classList.add('pop');
+  $('saved').textContent = 'Você economizou ' + fmt(bytes); // valor final já fica, mesmo se a aba estiver em segundo plano
+  const start = performance.now(), dur = 1400;
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / dur), eased = 1 - (1 - t) ** 3;
+    $('saved').textContent = 'Você economizou ' + fmt(bytes * eased);
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  setTimeout(() => $('result').scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+}
+
+// Redução
+$('reduce').onclick = async () => {
+  const pending = state.videos.filter((v) => !v.finished);
+  Object.assign(state, { running: true, canceled: false, total: pending.length, done: 0 });
+  pending.forEach((v) => { v.status = 'Na fila'; });
+  try { state.wake = await navigator.wakeLock?.request('screen'); } catch { /* sem wake lock */ }
+  render();
+  for (const v of pending) {
+    if (state.canceled) break;
+    state.current = v;
+    await compress(v);
+    if (v.finished) state.done++;
+  }
+  state.videos.forEach((v) => { if (!v.finished && v.status !== 'Cancelado') v.status = ''; });
+  Object.assign(state, { running: false, current: null });
+  state.wake?.release().catch(() => {}); state.wake = null;
+  render();
+};
+
+async function compress(v) {
+  const bitrate = targetBitrate(v.bitrate, FACTORS[state.level]);
+  const height = state.level === 2 ? scaledHeight(v.width, v.height) : 0;
+  const outW = height ? Math.round(v.width * height / v.height / 2) * 2 : v.width;
+  const outH = height || v.height;
+  v.progress = 0; v.status = 'Preparando…'; render();
+  // H.265 mantém mais qualidade no mesmo tamanho; sem ele, H.264.
+  const quality = new Quality({ bitrate }); // objeto: um número solto seria nível 0–1, não bitrate
+  const codec = await canEncodeVideo('hevc', { width: outW, height: outH, quality }).catch(() => false) ? 'hevc' : 'avc';
+  const input = new Input({ source: new BlobSource(v.file), formats: ALL_FORMATS });
+  const output = new Output({ format: new Mp4OutputFormat(), target: new BufferTarget() });
+  try {
+    const conv = await Conversion.init({
+      input, output,
+      video: { codec, quality, forceTranscode: true, ...(height ? { height } : {}) },
+    });
+    if (!conv.isValid) throw new Error('formato não suportado neste navegador');
+    state.conv = conv;
+    conv.onProgress = (p) => { v.progress = Math.round(p * 100); v.status = `Reduzindo… ${v.progress}%`; render(); };
+    v.status = 'Reduzindo… 0%'; render();
+    await conv.execute();
+    const size = output.target.buffer.byteLength;
+    if (size >= v.size) {
+      v.status = 'Já estava bem compactado: não ficou menor';
+    } else {
+      v.result = new Blob([output.target.buffer], { type: 'video/mp4' });
+      v.resultSize = size;
+      v.url = URL.createObjectURL(v.result);
+      v.status = `Pronto: ${fmt(size)} (${Math.round(100 - size * 100 / v.size)}% menor)`;
+    }
+    v.finished = true;
+  } catch (e) {
+    if (e instanceof ConversionCanceledError || state.canceled) {
+      v.status = 'Cancelado';
+    } else {
+      console.error(e);
+      v.status = `Não foi possível reduzir (${e.message || e})`;
+      v.finished = true;
+    }
+  } finally {
+    state.conv = null;
+    try { input.dispose?.(); } catch { /* ok */ }
+  }
+}
+
+$('cancel').onclick = async () => { state.canceled = true; await state.conv?.cancel(); };
+
+// Resultado
+const results = () => state.videos.filter((v) => v.result);
+const canShare = () => {
+  try { return !!navigator.canShare?.({ files: results().map((v) => new File([v.result], outputName(v.name), { type: 'video/mp4' })) }); }
+  catch { return false; }
+};
+$('downloadAll').onclick = () => {
+  results().forEach((v, i) => setTimeout(() => {
+    const a = document.createElement('a'); a.href = v.url; a.download = outputName(v.name); a.click();
+  }, i * 400));
+};
+$('share').onclick = () => {
+  const files = results().map((v) => new File([v.result], outputName(v.name), { type: 'video/mp4' }));
+  navigator.share({ files }).catch(() => {});
+};
+$('again').onclick = () => { [...state.videos].forEach(remove); };
+
+window.addEventListener('beforeunload', (e) => { if (state.running) e.preventDefault(); });
+render();
+</script>
+</body>
+</html>
