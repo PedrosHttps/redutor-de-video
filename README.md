@@ -1,6 +1,6 @@
 # Redutor de Vídeo (Android)
 
-Reduz o tamanho de vídeos .mp4 regravando em H.265 (ou H.264, se o aparelho não tiver H.265), sem mudar a resolução.
+Reduz o tamanho de vídeos regravando em H.265 (ou H.264, se o aparelho não tiver H.265), sem mudar a resolução.
 
 | Nível | Redução aproximada | Qualidade |
 |-------|--------------------|-----------|
@@ -8,7 +8,12 @@ Reduz o tamanho de vídeos .mp4 regravando em H.265 (ou H.264, se o aparelho nã
 | Média | ~50% | perda mínima |
 | Alta  | ~70% | perda pequena |
 
-Requer Android 10 ou mais novo. O vídeo reduzido vai para **Filmes/Redutor** (aparece na galeria).
+- Escolha **um ou vários vídeos** direto da galeria; cada um mostra miniatura, resolução, duração e tamanho.
+- Cada nível mostra o **tamanho final estimado**.
+- A redução **continua em segundo plano** (pode sair do app ou bloquear a tela), com progresso na notificação e botão **Cancelar**.
+- No fim: **Assistir**, **Compartilhar** e **Reduzir outros**.
+
+Requer Android 10 ou mais novo. Os vídeos reduzidos vão para **Filmes/Redutor** (aparecem na galeria).
 
 ## Como pegar o .apk
 
@@ -18,12 +23,13 @@ Requer Android 10 ou mais novo. O vídeo reduzido vai para **Filmes/Redutor** (a
 
 ## Como instalar no celular
 
-1. Passe o `app-debug.apk` para o celular (cabo USB, Google Drive, WhatsApp para você mesmo etc.).
-2. Abra o arquivo no celular. Se aparecer "instalação bloqueada", toque em **Configurações** e ative **Permitir desta fonte** para o app que está abrindo o arquivo (ex.: Arquivos, Chrome).
-3. Volte e toque em **Instalar**. Se o Play Protect avisar, toque em **Instalar mesmo assim** (o app não está na Play Store, por isso o aviso).
+1. **Se já tiver a versão anterior instalada, desinstale-a antes** (cada build de teste tem uma assinatura diferente).
+2. Passe o `app-debug.apk` para o celular (cabo USB, Google Drive, WhatsApp para você mesmo etc.).
+3. Abra o arquivo no celular. Se aparecer "instalação bloqueada", toque em **Configurações** e ative **Permitir desta fonte**.
+4. Toque em **Instalar**. Se o Play Protect avisar, toque em **Instalar mesmo assim** (o app não está na Play Store).
 
 ## Como usar
 
-1. **Escolher vídeo .mp4**
+1. **+ Adicionar vídeos** e escolha na galeria (pode marcar vários)
 2. Marque **Baixa**, **Média** ou **Alta**
-3. **Reduzir vídeo** e aguarde (deixe o app aberto; a tela fica ligada sozinha)
+3. **Reduzir vídeo** — na primeira vez o Android pergunta se pode mostrar notificações: permita para ver o progresso

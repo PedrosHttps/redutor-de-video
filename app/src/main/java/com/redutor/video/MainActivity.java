@@ -1,250 +1,239 @@
 package com.redutor.video;
 
-import android.app.Activity;
-import android.content.ContentResolver;
-import android.content.ContentValues;
+import android.Manifest;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.media.MediaMetadataRetriever;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.os.Handler;
-import android.os.Looper;
-import android.provider.MediaStore;
 import android.provider.OpenableColumns;
-import android.text.format.Formatter;
 import android.view.View;
-import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.ProgressBar;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.annotation.OptIn;
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.UnstableApi;
-import androidx.media3.transformer.Composition;
-import androidx.media3.transformer.DefaultEncoderFactory;
-import androidx.media3.transformer.EncoderUtil;
-import androidx.media3.transformer.ExportException;
-import androidx.media3.transformer.ExportResult;
-import androidx.media3.transformer.ProgressHolder;
-import androidx.media3.transformer.Transformer;
-import androidx.media3.transformer.VideoEncoderSettings;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.Files;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.color.DynamicColors;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.redutor.video.CompressService.Video;
 
-@OptIn(markerClass = UnstableApi.class)
-public class MainActivity extends Activity {
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-    private static final int PICK_VIDEO = 1;
-    private static final int MIN_BITRATE = 300_000;
+public class MainActivity extends AppCompatActivity {
 
-    private Button pick, reduce;
+    private static final String[] LEVEL_NAMES = {
+            "Baixa · quase sem perda", "Média · perda mínima", "Alta · perda pequena"};
+    private static final ExecutorService LOADER = Executors.newSingleThreadExecutor();
+
+    private final List<Video> videos = CompressService.videos;
+    private final RadioButton[] levelButtons = new RadioButton[3];
+    private LinearLayout list;
+    private TextView empty, progressText, resultText;
     private RadioGroup levels;
-    private ProgressBar progress;
-    private TextView info, status;
+    private MaterialButton add, reduce;
+    private View progressCard, resultCard;
+    private LinearProgressIndicator progressBar;
 
-    private Uri input;
-    private String inputName = "video";
-    private long inputSize;
-    private Transformer transformer;
-    private File output;
-
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ProgressHolder holder = new ProgressHolder();
-    private final Runnable poll = new Runnable() {
-        @Override
-        public void run() {
-            if (transformer != null
-                    && transformer.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE) {
-                progress.setProgress(holder.progress);
-                status.setText("Reduzindo… " + holder.progress + "%");
-            }
-            handler.postDelayed(this, 500);
-        }
-    };
+    // Seletor de fotos/vídeos do Android: abre direto na galeria.
+    private final ActivityResultLauncher<PickVisualMediaRequest> picker = registerForActivityResult(
+            new ActivityResultContracts.PickMultipleVisualMedia(), this::onPicked);
+    private final ActivityResultLauncher<String> askNotifications = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), granted -> startCompress());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        DynamicColors.applyToActivityIfAvailable(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        pick = findViewById(R.id.pick);
-        reduce = findViewById(R.id.reduce);
+        list = findViewById(R.id.list);
+        empty = findViewById(R.id.empty);
         levels = findViewById(R.id.levels);
-        progress = findViewById(R.id.progress);
-        info = findViewById(R.id.info);
-        status = findViewById(R.id.status);
+        levelButtons[0] = findViewById(R.id.baixa);
+        levelButtons[1] = findViewById(R.id.media);
+        levelButtons[2] = findViewById(R.id.alta);
+        add = findViewById(R.id.add);
+        reduce = findViewById(R.id.reduce);
+        progressCard = findViewById(R.id.progress_card);
+        progressText = findViewById(R.id.progress_text);
+        progressBar = findViewById(R.id.progress_bar);
+        resultCard = findViewById(R.id.result_card);
+        resultText = findViewById(R.id.result_text);
 
-        pick.setOnClickListener(v -> startActivityForResult(
-                new Intent(Intent.ACTION_GET_CONTENT)
-                        .setType("video/mp4")
-                        .addCategory(Intent.CATEGORY_OPENABLE),
-                PICK_VIDEO));
-        reduce.setOnClickListener(v -> startExport());
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != PICK_VIDEO || resultCode != RESULT_OK || data == null || data.getData() == null) {
-            return;
-        }
-        input = data.getData();
-        inputName = "video";
-        inputSize = 0;
-        try (Cursor c = getContentResolver().query(input, null, null, null, null)) {
-            if (c != null && c.moveToFirst()) {
-                int n = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                int s = c.getColumnIndex(OpenableColumns.SIZE);
-                if (n >= 0 && c.getString(n) != null) inputName = c.getString(n);
-                if (s >= 0) inputSize = c.getLong(s);
-            }
-        }
-        info.setText(inputName + "\nTamanho: " + size(inputSize));
-        status.setText("");
-        reduce.setEnabled(true);
-    }
-
-    private void startExport() {
-        int checked = levels.getCheckedRadioButtonId();
-        float factor = checked == R.id.baixa ? 0.7f : checked == R.id.alta ? 0.3f : 0.5f;
-        int bitrate = targetBitrate(sourceBitrate(), factor);
-
-        // H.265 mantém mais qualidade no mesmo tamanho; se o aparelho não tiver, usa H.264.
-        String mime = EncoderUtil.getSupportedEncoders(MimeTypes.VIDEO_H265).isEmpty()
-                ? MimeTypes.VIDEO_H264 : MimeTypes.VIDEO_H265;
-
-        output = new File(getCacheDir(), "saida.mp4");
-        output.delete();
-
-        transformer = new Transformer.Builder(this)
-                .setVideoMimeType(mime)
-                .setEncoderFactory(new DefaultEncoderFactory.Builder(this)
-                        .setRequestedVideoEncoderSettings(
-                                new VideoEncoderSettings.Builder().setBitrate(bitrate).build())
-                        .setEnableFallback(true)
-                        .build())
-                .addListener(new Transformer.Listener() {
-                    @Override
-                    public void onCompleted(Composition composition, ExportResult result) {
-                        onExportDone();
-                    }
-
-                    @Override
-                    public void onError(Composition composition, ExportResult result, ExportException e) {
-                        finishBusy("Não foi possível reduzir este vídeo.\n(" + e.getMessage() + ")");
-                    }
-                })
-                .build();
-
-        setBusy(true);
-        status.setText("Reduzindo… 0%");
-        transformer.start(MediaItem.fromUri(input), output.getAbsolutePath());
-        handler.post(poll);
-    }
-
-    static int targetBitrate(long source, float factor) {
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(MIN_BITRATE, (long) (source * factor)));
-    }
-
-    static String outputName(String inputName) {
-        String base = inputName.toLowerCase().endsWith(".mp4")
-                ? inputName.substring(0, inputName.length() - 4) : inputName;
-        return base + "_reduzido.mp4";
-    }
-
-    /** Bitrate total do vídeo original, em bits por segundo. */
-    private long sourceBitrate() {
-        try (MediaMetadataRetriever r = new MediaMetadataRetriever()) {
-            r.setDataSource(this, input);
-            String b = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE);
-            if (b != null) return Long.parseLong(b);
-            String d = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
-            if (d != null && inputSize > 0) return inputSize * 8 * 1000 / Math.max(1, Long.parseLong(d));
-        } catch (Exception ignored) {
-        }
-        return 8_000_000; // valor seguro caso o arquivo não informe
-    }
-
-    private void onExportDone() {
-        handler.removeCallbacks(poll);
-        progress.setProgress(100);
-        status.setText("Salvando…");
-        new Thread(() -> {
-            long outSize = output.length();
-            String msg;
-            if (inputSize > 0 && outSize >= inputSize) {
-                msg = "Este vídeo já está bem compactado: o resultado não ficou menor, "
-                        + "então nada foi salvo. Tente o nível Alta.";
+        levels.check(levelButtons[CompressService.level].getId());
+        levels.setOnCheckedChangeListener((g, id) -> {
+            for (int k = 0; k < 3; k++) if (levelButtons[k].getId() == id) CompressService.level = k;
+        });
+        add.setOnClickListener(v -> picker.launch(new PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.VideoOnly.INSTANCE)
+                .build()));
+        reduce.setOnClickListener(v -> {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS);
             } else {
-                try {
-                    save();
-                    long pct = inputSize > 0 ? 100 - outSize * 100 / inputSize : 0;
-                    msg = "Pronto! " + size(inputSize) + " → " + size(outSize)
-                            + " (" + pct + "% menor)\nSalvo em Filmes/Redutor";
-                } catch (IOException e) {
-                    msg = "Erro ao salvar: " + e.getMessage();
-                }
+                startCompress();
             }
-            output.delete();
-            String finalMsg = msg;
-            runOnUiThread(() -> finishBusy(finalMsg));
-        }).start();
-    }
-
-    /** Copia o resultado para a galeria (Filmes/Redutor). */
-    private void save() throws IOException {
-        ContentValues v = new ContentValues();
-        v.put(MediaStore.Video.Media.DISPLAY_NAME, outputName(inputName));
-        v.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
-        v.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/Redutor");
-        v.put(MediaStore.Video.Media.IS_PENDING, 1);
-        ContentResolver cr = getContentResolver();
-        Uri uri = cr.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, v);
-        if (uri == null) throw new IOException("não foi possível criar o arquivo");
-        try (OutputStream out = cr.openOutputStream(uri)) {
-            if (out == null) throw new IOException("não foi possível gravar o arquivo");
-            Files.copy(output.toPath(), out);
-        } catch (IOException e) {
-            cr.delete(uri, null, null);
-            throw e;
-        }
-        v.clear();
-        v.put(MediaStore.Video.Media.IS_PENDING, 0);
-        cr.update(uri, v, null, null);
-    }
-
-    private void finishBusy(String msg) {
-        handler.removeCallbacks(poll);
-        transformer = null;
-        setBusy(false);
-        status.setText(msg);
-    }
-
-    private void setBusy(boolean busy) {
-        pick.setEnabled(!busy);
-        reduce.setEnabled(!busy);
-        for (int i = 0; i < levels.getChildCount(); i++) levels.getChildAt(i).setEnabled(!busy);
-        progress.setVisibility(busy ? View.VISIBLE : View.GONE);
-        progress.setProgress(0);
-        if (busy) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-    }
-
-    private String size(long bytes) {
-        return bytes > 0 ? Formatter.formatShortFileSize(this, bytes) : "desconhecido";
+        });
+        findViewById(R.id.cancel).setOnClickListener(v -> CompressService.cancel());
+        findViewById(R.id.share).setOnClickListener(v -> share());
+        findViewById(R.id.again).setOnClickListener(v -> {
+            videos.clear();
+            rebuildRows();
+        });
+        rebuildRows();
     }
 
     @Override
-    protected void onDestroy() {
-        handler.removeCallbacks(poll);
-        if (transformer != null) transformer.cancel();
-        super.onDestroy();
+    protected void onStart() {
+        super.onStart();
+        CompressService.listener = this::refresh;
+        refresh();
+    }
+
+    @Override
+    protected void onStop() {
+        CompressService.listener = null;
+        super.onStop();
+    }
+
+    private void onPicked(List<Uri> uris) {
+        for (Uri uri : uris) {
+            Video v = new Video(uri);
+            try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
+                if (c != null && c.moveToFirst()) {
+                    int n = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                    int s = c.getColumnIndex(OpenableColumns.SIZE);
+                    if (n >= 0 && c.getString(n) != null) v.name = c.getString(n);
+                    if (s >= 0) v.size = c.getLong(s);
+                }
+            } catch (Exception ignored) {
+            }
+            videos.add(v);
+            LOADER.execute(() -> {
+                CompressService.load(getApplicationContext(), v);
+                runOnUiThread(this::refresh);
+            });
+        }
+        rebuildRows();
+    }
+
+    private void startCompress() {
+        CompressService.start(this);
+        refresh();
+    }
+
+    private void rebuildRows() {
+        list.removeAllViews();
+        for (Video v : videos) {
+            View row = getLayoutInflater().inflate(R.layout.item_video, list, false);
+            row.findViewById(R.id.remove).setOnClickListener(x -> {
+                videos.remove(v);
+                rebuildRows();
+            });
+            row.findViewById(R.id.watch).setOnClickListener(x -> watch(v.result));
+            list.addView(row);
+        }
+        refresh();
+    }
+
+    /** Atualiza a tela a partir do estado atual (chamado também pelo serviço a cada 0,5 s). */
+    private void refresh() {
+        boolean running = CompressService.running;
+        long[] est = new long[3];
+        long in = 0, out = 0;
+        int pending = 0, saved = 0;
+        boolean loaded = true;
+        for (int i = 0; i < videos.size() && i < list.getChildCount(); i++) {
+            Video v = videos.get(i);
+            View row = list.getChildAt(i);
+            ((ImageView) row.findViewById(R.id.thumb)).setImageBitmap(v.thumb);
+            ((TextView) row.findViewById(R.id.name)).setText(v.name);
+            ((TextView) row.findViewById(R.id.details)).setText(details(v));
+            TextView status = row.findViewById(R.id.status);
+            status.setText(v.status);
+            status.setVisibility(v.status == null ? View.GONE : View.VISIBLE);
+            row.findViewById(R.id.watch).setVisibility(v.result != null ? View.VISIBLE : View.GONE);
+            row.findViewById(R.id.remove).setVisibility(running ? View.GONE : View.VISIBLE);
+            loaded &= v.loaded;
+            if (!v.finished) {
+                pending++;
+                for (int k = 0; k < 3; k++) est[k] += CompressService.estimate(v, CompressService.FACTORS[k]);
+            }
+            if (v.result != null) {
+                saved++;
+                in += v.size;
+                out += v.resultSize;
+            }
+        }
+
+        empty.setVisibility(videos.isEmpty() ? View.VISIBLE : View.GONE);
+        add.setEnabled(!running);
+        for (int k = 0; k < 3; k++) {
+            levelButtons[k].setText(est[k] > 0
+                    ? LEVEL_NAMES[k] + "\n≈ " + CompressService.size(this, est[k]) + (pending > 1 ? " no total" : "")
+                    : LEVEL_NAMES[k]);
+            levelButtons[k].setEnabled(!running);
+        }
+        reduce.setVisibility(running || (pending == 0 && saved > 0) ? View.GONE : View.VISIBLE);
+        reduce.setEnabled(pending > 0 && loaded);
+        reduce.setText(!loaded ? "Lendo vídeos…" : pending > 1 ? "Reduzir " + pending + " vídeos" : "Reduzir vídeo");
+
+        progressCard.setVisibility(running ? View.VISIBLE : View.GONE);
+        progressText.setText(CompressService.progressText);
+        progressBar.setProgressCompat(CompressService.progress, true);
+
+        resultCard.setVisibility(!running && saved > 0 ? View.VISIBLE : View.GONE);
+        if (saved > 0) {
+            resultText.setText("Pronto! " + CompressService.size(this, in) + " → " + CompressService.size(this, out)
+                    + (in > 0 ? " (" + (100 - out * 100 / in) + "% menor)" : "")
+                    + "\nSalvo em Filmes/Redutor");
+        }
+    }
+
+    private String details(Video v) {
+        StringBuilder s = new StringBuilder();
+        if (v.width > 0) s.append(v.width).append('×').append(v.height).append(" · ");
+        if (v.durationMs > 0) {
+            long t = v.durationMs / 1000;
+            s.append(t >= 3600
+                    ? String.format(Locale.ROOT, "%d:%02d:%02d", t / 3600, t / 60 % 60, t % 60)
+                    : String.format(Locale.ROOT, "%d:%02d", t / 60, t % 60)).append(" · ");
+        }
+        return s.append(CompressService.size(this, v.size)).toString();
+    }
+
+    private void watch(Uri uri) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(uri, "video/mp4")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "Nenhum app para assistir vídeos", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void share() {
+        ArrayList<Uri> uris = new ArrayList<>();
+        for (Video v : videos) if (v.result != null) uris.add(v.result);
+        if (uris.isEmpty()) return;
+        Intent i = new Intent(uris.size() == 1 ? Intent.ACTION_SEND : Intent.ACTION_SEND_MULTIPLE)
+                .setType("video/mp4")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        if (uris.size() == 1) i.putExtra(Intent.EXTRA_STREAM, uris.get(0));
+        else i.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+        startActivity(Intent.createChooser(i, "Compartilhar vídeos"));
     }
 }
