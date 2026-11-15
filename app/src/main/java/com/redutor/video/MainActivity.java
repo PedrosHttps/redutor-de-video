@@ -2,6 +2,8 @@ package com.redutor.video;
 
 import android.Manifest;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -24,9 +26,14 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.color.DynamicColors;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.redutor.video.CompressService.Video;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -38,6 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String[] LEVEL_NAMES = {
             "Baixa · quase sem perda", "Média · perda mínima", "Alta · perda pequena"};
     private static final ExecutorService LOADER = Executors.newSingleThreadExecutor();
+    private static boolean crashHandlerSet;
 
     private final List<Video> videos = CompressService.videos;
     private final RadioButton[] levelButtons = new RadioButton[3];
@@ -59,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
         DynamicColors.applyToActivityIfAvailable(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        catchCrashes();
         list = findViewById(R.id.list);
         empty = findViewById(R.id.empty);
         levels = findViewById(R.id.levels);
@@ -95,6 +104,42 @@ public class MainActivity extends AppCompatActivity {
             rebuildRows();
         });
         rebuildRows();
+    }
+
+    /** Guarda o erro de um fechamento inesperado e mostra na próxima abertura (não há logcat sem cabo). */
+    private void catchCrashes() {
+        File file = new File(getFilesDir(), "erro.txt");
+        if (!crashHandlerSet) {
+            crashHandlerSet = true;
+            Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
+            Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+                try (PrintWriter w = new PrintWriter(file)) {
+                    w.println(Build.MANUFACTURER + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE
+                            + " (API " + Build.VERSION.SDK_INT + ") · thread " + t.getName());
+                    e.printStackTrace(w);
+                } catch (Exception ignored) {
+                }
+                if (previous != null) previous.uncaughtException(t, e);
+            });
+        }
+        if (!file.exists()) return;
+        String text;
+        try {
+            text = new String(Files.readAllBytes(file.toPath()));
+        } catch (IOException e) {
+            return;
+        } finally {
+            file.delete();
+        }
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("O app fechou na última vez")
+                .setMessage(text.length() > 3000 ? text.substring(0, 3000) : text)
+                .setPositiveButton("Copiar erro", (d, w) -> {
+                    getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("erro", text));
+                    Toast.makeText(this, "Erro copiado", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Fechar", null)
+                .show();
     }
 
     @Override
