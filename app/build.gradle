@@ -10,8 +10,8 @@ android {
         applicationId 'com.redutor.video'
         minSdk 29
         targetSdk 35
-        versionCode 4
-        versionName '2.2'
+        versionCode 5
+        versionName '3.0'
     }
 
     compileOptions {
@@ -23,6 +23,7 @@ android {
 dependencies {
     implementation 'androidx.media3:media3-transformer:1.5.1'
     implementation 'androidx.media3:media3-common:1.5.1'
+    implementation 'androidx.media3:media3-effect:1.5.1'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.activity:activity:1.9.3'
     testImplementation 'junit:junit:4.13.2'

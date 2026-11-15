@@ -1,12 +1,12 @@
 # Redutor de Vídeo (Android)
 
-Reduz o tamanho de vídeos regravando em H.265 (ou H.264, se o aparelho não tiver H.265), sem mudar a resolução.
+Reduz o tamanho de vídeos regravando em H.265 (ou H.264, se o aparelho não tiver H.265). Baixa e Média mantêm a resolução; Alta reduz para 720p.
 
 | Nível | Redução aproximada | Qualidade |
 |-------|--------------------|-----------|
-| Baixa | ~30% | quase sem perda |
-| Média | ~50% | perda mínima |
-| Alta  | ~70% | perda pequena |
+| Baixa | ~45% | quase sem perda |
+| Média | ~65% | perda pequena |
+| Alta  | ~85% | vai para 720p (ótimo no celular, menos nítido numa TV) |
 
 - Escolha **um ou vários vídeos** direto da galeria; cada um mostra miniatura, resolução, duração e tamanho.
 - Cada nível mostra o **tamanho final estimado**.

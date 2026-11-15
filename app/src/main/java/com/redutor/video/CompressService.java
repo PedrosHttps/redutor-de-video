@@ -25,11 +25,15 @@ import androidx.annotation.OptIn;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
 import androidx.core.content.ContextCompat;
+import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.DefaultEncoderFactory;
+import androidx.media3.transformer.EditedMediaItem;
+import androidx.media3.transformer.Effects;
 import androidx.media3.transformer.EncoderUtil;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
@@ -42,6 +46,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -50,9 +55,10 @@ import java.util.concurrent.Executors;
 @OptIn(markerClass = UnstableApi.class)
 public class CompressService extends Service {
 
-    /** Fração do bitrate original para Baixa, Média e Alta. */
-    static final float[] FACTORS = {0.7f, 0.5f, 0.3f};
+    /** Fração do bitrate original para Baixa, Média e Alta (Alta também vai para 720p). */
+    static final float[] FACTORS = {0.55f, 0.35f, 0.15f};
     private static final int MIN_BITRATE = 300_000;
+    private static final int ALTA_SHORT_SIDE = 720;
     private static final String CHANNEL = "progresso";
 
     // Estado compartilhado com a tela (tudo acessado na thread principal).
@@ -196,7 +202,12 @@ public class CompressService extends Service {
                     }
                 })
                 .build();
-        transformer.start(MediaItem.fromUri(v.uri), output.getAbsolutePath());
+        int height = level == 2 ? scaledHeight(v.width, v.height) : 0;
+        EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.fromUri(v.uri))
+                .setEffects(height == 0 ? Effects.EMPTY : new Effects(Collections.emptyList(),
+                        Collections.<Effect>singletonList(Presentation.createForHeight(height))))
+                .build();
+        transformer.start(item, output.getAbsolutePath());
         update();
     }
 
@@ -343,6 +354,13 @@ public class CompressService extends Service {
 
     static int targetBitrate(long source, float factor) {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(MIN_BITRATE, (long) (source * factor)));
+    }
+
+    /** Altura de saída do nível Alta (lado menor em 720p), ou 0 se o vídeo já for 720p ou menor. */
+    static int scaledHeight(int width, int height) {
+        if (width <= 0 || height <= 0 || Math.min(width, height) <= ALTA_SHORT_SIDE) return 0;
+        if (width >= height) return ALTA_SHORT_SIDE;
+        return Math.round(height * (float) ALTA_SHORT_SIDE / width / 2) * 2; // vídeo em pé; altura par
     }
 
     /** Tamanho final estimado em bytes (0 se a duração for desconhecida). */

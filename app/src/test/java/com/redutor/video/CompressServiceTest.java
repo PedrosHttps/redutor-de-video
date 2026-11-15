@@ -23,6 +23,15 @@ public class CompressServiceTest {
     }
 
     @Test
+    public void scaledHeight() {
+        assertEquals(720, CompressService.scaledHeight(1920, 1080));   // deitado
+        assertEquals(1280, CompressService.scaledHeight(1080, 1920));  // em pé → 720×1280
+        assertEquals(720, CompressService.scaledHeight(3840, 2160));   // 4K
+        assertEquals(0, CompressService.scaledHeight(1280, 720));      // já é 720p
+        assertEquals(0, CompressService.scaledHeight(0, 0));           // desconhecido
+    }
+
+    @Test
     public void outputName() {
         assertEquals("ferias_reduzido.mp4", CompressService.outputName("ferias.MP4"));
         assertEquals("clip_reduzido.mp4", CompressService.outputName("clip.mov"));

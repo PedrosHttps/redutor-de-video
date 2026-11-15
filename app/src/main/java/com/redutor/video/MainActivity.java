@@ -11,7 +11,12 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
+import android.animation.ValueAnimator;
+import android.text.format.Formatter;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
@@ -27,7 +32,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.redutor.video.CompressService.Video;
 
 import java.io.File;
@@ -43,18 +48,19 @@ import java.util.concurrent.Executors;
 public class MainActivity extends AppCompatActivity {
 
     private static final String[] LEVEL_NAMES = {
-            "Baixa · quase sem perda", "Média · perda mínima", "Alta · perda pequena"};
+            "Baixa · quase sem perda", "Média · perda pequena", "Alta · 720p, ideal para celular"};
     private static final ExecutorService LOADER = Executors.newSingleThreadExecutor();
     private static boolean crashHandlerSet;
 
     private final List<Video> videos = CompressService.videos;
     private final RadioButton[] levelButtons = new RadioButton[3];
     private LinearLayout list;
-    private TextView empty, progressText, resultText;
+    private TextView empty, progressText, progressPercent, resultText, savedText;
     private RadioGroup levels;
     private MaterialButton add, reduce;
-    private View progressCard, resultCard;
-    private LinearProgressIndicator progressBar;
+    private View progressCard, resultCard, check;
+    private CircularProgressIndicator progressBar;
+    private ValueAnimator counter;
 
     // Seletor de fotos/vídeos do Android: abre direto na galeria.
     private final ActivityResultLauncher<PickVisualMediaRequest> picker = registerForActivityResult(
@@ -79,8 +85,11 @@ public class MainActivity extends AppCompatActivity {
         progressCard = findViewById(R.id.progress_card);
         progressText = findViewById(R.id.progress_text);
         progressBar = findViewById(R.id.progress_bar);
+        progressPercent = findViewById(R.id.progress_percent);
         resultCard = findViewById(R.id.result_card);
         resultText = findViewById(R.id.result_text);
+        savedText = findViewById(R.id.saved_text);
+        check = findViewById(R.id.check);
 
         levels.check(levelButtons[CompressService.level].getId());
         levels.setOnCheckedChangeListener((g, id) -> {
@@ -101,9 +110,37 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.share).setOnClickListener(v -> share());
         findViewById(R.id.again).setOnClickListener(v -> {
             videos.clear();
-            rebuildRows();
+            rebuildRows(0);
         });
-        rebuildRows();
+        rebuildRows(Integer.MAX_VALUE);
+
+        // Entrada: os cartões sobem e aparecem um depois do outro.
+        ViewGroup content = findViewById(R.id.content);
+        for (int i = 0; i < content.getChildCount(); i++) slideIn(content.getChildAt(i), i * 70L);
+    }
+
+    private void slideIn(View v, long delay) {
+        v.setAlpha(0f);
+        v.setTranslationY(24 * getResources().getDisplayMetrics().density);
+        v.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(400)
+                .setInterpolator(new DecelerateInterpolator(2f)).start();
+    }
+
+    /** ✓ que surge girando e contador de MB economizados subindo. */
+    private void celebrate(long savedBytes) {
+        check.setScaleX(0f);
+        check.setScaleY(0f);
+        check.setRotation(-120f);
+        check.animate().scaleX(1f).scaleY(1f).rotation(0f).setStartDelay(150).setDuration(700)
+                .setInterpolator(new OvershootInterpolator(2.5f)).start();
+        counter = ValueAnimator.ofFloat(0f, 1f).setDuration(1400);
+        counter.setInterpolator(new DecelerateInterpolator(2f));
+        counter.addUpdateListener(a -> savedText.setText(savedLabel((long) (savedBytes * a.getAnimatedFraction()))));
+        counter.start();
+    }
+
+    private String savedLabel(long bytes) {
+        return "Você economizou " + Formatter.formatShortFileSize(this, Math.max(0, bytes));
     }
 
     /** Guarda o erro de um fechamento inesperado e mostra na próxima abertura (não há logcat sem cabo). */
@@ -156,6 +193,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onPicked(List<Uri> uris) {
+        int before = videos.size();
         for (Uri uri : uris) {
             Video v = new Video(uri);
             try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
@@ -173,7 +211,7 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(this::refresh);
             });
         }
-        rebuildRows();
+        rebuildRows(before);
     }
 
     private void startCompress() {
@@ -181,16 +219,19 @@ public class MainActivity extends AppCompatActivity {
         refresh();
     }
 
-    private void rebuildRows() {
+    /** Recria as linhas; as de índice >= animateFrom (as recém-adicionadas) entram animadas. */
+    private void rebuildRows(int animateFrom) {
         list.removeAllViews();
-        for (Video v : videos) {
+        for (int i = 0; i < videos.size(); i++) {
+            Video v = videos.get(i);
             View row = getLayoutInflater().inflate(R.layout.item_video, list, false);
             row.findViewById(R.id.remove).setOnClickListener(x -> {
                 videos.remove(v);
-                rebuildRows();
+                rebuildRows(Integer.MAX_VALUE);
             });
             row.findViewById(R.id.watch).setOnClickListener(x -> watch(v.result));
             list.addView(row);
+            if (i >= animateFrom) slideIn(row, (i - animateFrom) * 60L);
         }
         refresh();
     }
@@ -239,14 +280,19 @@ public class MainActivity extends AppCompatActivity {
 
         progressCard.setVisibility(running ? View.VISIBLE : View.GONE);
         progressText.setText(CompressService.progressText);
+        progressPercent.setText(CompressService.progress + "%");
         progressBar.setProgressCompat(CompressService.progress, true);
 
-        resultCard.setVisibility(!running && saved > 0 ? View.VISIBLE : View.GONE);
+        boolean showResult = !running && saved > 0;
         if (saved > 0) {
-            resultText.setText("Pronto! " + CompressService.size(this, in) + " → " + CompressService.size(this, out)
+            resultText.setText((saved > 1 ? saved + " vídeos · " : "")
+                    + CompressService.size(this, in) + " → " + CompressService.size(this, out)
                     + (in > 0 ? " (" + (100 - out * 100 / in) + "% menor)" : "")
                     + "\nSalvo em Filmes/Redutor");
+            if (counter == null || !counter.isRunning()) savedText.setText(savedLabel(in - out));
         }
+        if (showResult && resultCard.getVisibility() != View.VISIBLE) celebrate(in - out);
+        resultCard.setVisibility(showResult ? View.VISIBLE : View.GONE);
     }
 
     private String details(Video v) {
