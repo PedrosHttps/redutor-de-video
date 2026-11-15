@@ -141,7 +141,8 @@ public class CompressService extends Service {
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(openApp());
-        ServiceCompat.startForeground(this, 1, notif.build(), Build.VERSION.SDK_INT >= 35
+        // Direto, sem ServiceCompat: ele zera o tipo mediaProcessing (Android 15+) e o sistema recusa o serviço.
+        startForeground(1, notif.build(), Build.VERSION.SDK_INT >= 35
                 ? ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
                 : ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         // Sem isto o processador dorme quando a tela apaga e a compressão para.
