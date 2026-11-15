@@ -108,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
         });
         findViewById(R.id.cancel).setOnClickListener(v -> CompressService.cancel());
         findViewById(R.id.share).setOnClickListener(v -> share());
+        findViewById(R.id.help).setOnClickListener(v -> startActivity(new Intent(this, HelpActivity.class)));
         findViewById(R.id.again).setOnClickListener(v -> {
             videos.clear();
             rebuildRows(0);
@@ -119,9 +120,9 @@ public class MainActivity extends AppCompatActivity {
         for (int i = 0; i < content.getChildCount(); i++) slideIn(content.getChildAt(i), i * 70L);
     }
 
-    private void slideIn(View v, long delay) {
+    static void slideIn(View v, long delay) {
         v.setAlpha(0f);
-        v.setTranslationY(24 * getResources().getDisplayMetrics().density);
+        v.setTranslationY(24 * v.getResources().getDisplayMetrics().density);
         v.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(400)
                 .setInterpolator(new DecelerateInterpolator(2f)).start();
     }

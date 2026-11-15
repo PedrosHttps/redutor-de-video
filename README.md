@@ -23,7 +23,7 @@ Requer Android 10 ou mais novo. Os vídeos reduzidos vão para **Filmes/Redutor*
 
 ## Como instalar no celular
 
-1. **Se já tiver a versão anterior instalada, desinstale-a antes** (cada build de teste tem uma assinatura diferente).
+1. A partir da versão 3.1 o app tem assinatura fixa: as próximas versões **instalam por cima**, sem desinstalar. (Vindo da 3.0 ou anterior, desinstale uma última vez.)
 2. Passe o `app-debug.apk` para o celular (cabo USB, Google Drive, WhatsApp para você mesmo etc.).
 3. Abra o arquivo no celular. Se aparecer "instalação bloqueada", toque em **Configurações** e ative **Permitir desta fonte**.
 4. Toque em **Instalar**. Se o Play Protect avisar, toque em **Instalar mesmo assim** (o app não está na Play Store).
@@ -33,3 +33,9 @@ Requer Android 10 ou mais novo. Os vídeos reduzidos vão para **Filmes/Redutor*
 1. **+ Adicionar vídeos** e escolha na galeria (pode marcar vários)
 2. Marque **Baixa**, **Média** ou **Alta**
 3. **Reduzir vídeo** — na primeira vez o Android pergunta se pode mostrar notificações: permita para ver o progresso
+
+Dúvidas, críticas e sugestões: botão **Ajuda** no topo do app.
+
+## Assinatura (para quem mantém o app)
+
+O build assina com a chave guardada nos Secrets do repositório (`KEYSTORE_BASE64` e `KEYSTORE_PASSWORD`, alias `redutor`). A chave original fica fora do Git, em `chave/redutor.p12`. **Guarde uma cópia**: sem ela, as próximas versões não instalam por cima.

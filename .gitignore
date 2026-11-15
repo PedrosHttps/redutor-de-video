@@ -1,3 +1,6 @@
 .gradle/
 build/
 local.properties
+# chave de assinatura: nunca vai para o GitHub (lá fica só nos Secrets)
+chave/
+*.p12

@@ -10,8 +10,27 @@ android {
         applicationId 'com.redutor.video'
         minSdk 29
         targetSdk 35
-        versionCode 5
-        versionName '3.0'
+        versionCode 6
+        versionName '3.1'
+    }
+
+    // Assinatura fixa: a mesma chave em todo build, para instalar atualizações por cima.
+    def keystore = System.getenv('KEYSTORE_FILE')
+    signingConfigs {
+        fixa {
+            if (keystore) {
+                storeFile file(keystore)
+                storeType 'pkcs12'
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias 'redutor'
+                keyPassword System.getenv('KEYSTORE_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            if (keystore) signingConfig signingConfigs.fixa
+        }
     }
 
     compileOptions {
