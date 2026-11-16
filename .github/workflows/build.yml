@@ -2,6 +2,9 @@ name: Build APK
 
 on:
   push:
+    paths-ignore: # só página web ou README: não refaz o APK
+      - 'docs/**'
+      - 'README.md'
   workflow_dispatch:
 
 permissions:

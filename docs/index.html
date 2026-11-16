@@ -480,6 +480,7 @@ async function compress(v) {
     });
     if (!conv.isValid) throw new Error('formato não suportado neste navegador');
     state.conv = conv;
+    if (state.canceled) throw new ConversionCanceledError(); // Cancelar tocado no "Preparando…", antes de existir conv
     conv.onProgress = (p) => { v.progress = Math.round(p * 100); v.status = `Reduzindo… ${v.progress}%`; render(); };
     v.status = 'Reduzindo… 0%'; render();
     await conv.execute();
