@@ -54,8 +54,11 @@
   @media (min-width: 900px) {
     .wrap { max-width: 1120px; padding-left: 24px; padding-right: 24px; }
     .layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: 0 18px; align-items: start; }
-    .side { position: sticky; top: 16px; }
     .layout .drop { padding: 56px 16px; }
+  }
+  /* Só gruda se o painel inteiro couber na janela (medido: até 748px + 16px do topo) */
+  @media (min-width: 900px) and (min-height: 800px) {
+    .side { position: sticky; top: 16px; }
   }
 
   /* topo */
