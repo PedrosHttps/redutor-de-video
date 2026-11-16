@@ -50,6 +50,13 @@
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 48px; }
+  /* Computador: vídeos à esquerda, painel fixo (níveis, botão, progresso, resultado) à direita */
+  @media (min-width: 900px) {
+    .wrap { max-width: 1120px; padding-left: 24px; padding-right: 24px; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: 0 18px; align-items: start; }
+    .side { position: sticky; top: 16px; }
+    .layout .drop { padding: 56px 16px; }
+  }
 
   /* topo */
   .hero {
@@ -198,6 +205,7 @@
     <p class="muted" style="margin:0">Toque em <b>Compartilhar</b> (o quadrado com a seta ↑) e depois em <b>Adicionar à Tela de Início</b>. O Redutor passa a abrir em tela cheia, com ícone próprio.</p>
   </section>
 
+  <div class="layout">
   <section class="card enter" style="animation-delay:.05s">
     <h2>1. Vídeos</h2>
     <div id="list"></div>
@@ -209,14 +217,14 @@
     </label>
   </section>
 
+  <aside class="side">
   <section class="card enter" style="animation-delay:.1s">
     <h2>2. Quanto reduzir?</h2>
     <div class="levels" id="levels"></div>
+    <button class="primary block big" id="reduce" style="margin-top:14px" disabled>Reduzir vídeo</button>
   </section>
 
-  <button class="primary block big enter" id="reduce" style="animation-delay:.15s" disabled>Reduzir vídeo</button>
-
-  <section class="card center enter" id="progress" hidden style="margin-top:14px">
+  <section class="card center enter" id="progress" hidden>
     <div class="ring">
       <svg width="176" height="176" viewBox="0 0 176 176" aria-hidden="true">
         <circle class="track" cx="88" cy="88" r="76" fill="none" stroke-width="14"/>
@@ -229,7 +237,7 @@
     <button class="ghost" id="cancel">Cancelar</button>
   </section>
 
-  <section class="card center" id="result" hidden style="margin-top:14px">
+  <section class="card center" id="result" hidden>
     <svg class="check" id="check" viewBox="0 0 24 24" aria-hidden="true"><path fill="url(#grad)" d="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM10,17l-5,-5 1.41,-1.41L10,14.17l7.59,-7.59L19,8l-9,9z"/></svg>
     <p class="saved" id="saved"></p>
     <p class="muted" id="rtext" style="margin:4px 0 0"></p>
@@ -239,8 +247,11 @@
       <button class="ghost" id="again">Reduzir outros</button>
     </div>
   </section>
+  </aside>
+  </div>
 
-  <section class="card enter" id="ajuda" style="margin-top:28px;animation-delay:.2s">
+  <div class="layout" style="margin-top:14px">
+  <section class="card enter" id="ajuda" style="animation-delay:.2s">
     <h2>Ajuda</h2>
     <details><summary>Como reduzir um vídeo?</summary><p>Toque em Adicionar vídeos (ou arraste), marque o nível e toque em Reduzir. No fim, toque em Baixar.</p></details>
     <details><summary>Qual nível escolher?</summary><p>Baixa: para guardar com a melhor qualidade. Média: o equilíbrio, boa para a maioria. Alta: para mandar por WhatsApp ou e-mail; o vídeo vai para 720p.</p></details>
@@ -251,6 +262,7 @@
     <details><summary>Deu erro ou não funcionou</summary><p>Atualize o navegador ou tente o Chrome. Vídeos muito grandes (vários GB) podem não caber na memória do navegador; nesse caso, use o app Android.</p></details>
   </section>
 
+  <div>
   <section class="card enter" style="animation-delay:.25s">
     <h2>Críticas e sugestões</h2>
     <p class="muted" style="margin-top:0">Encontrou um problema ou tem uma ideia para melhorar? Conte para a gente: leva 1 minuto.</p>
@@ -271,6 +283,8 @@
       <a class="btn primary" href="https://github.com/PedrosHttps/redutor-de-video/releases/latest/download/RedutorDeVideo.apk">Baixar app Android</a>
     </div>
   </section>
+  </div>
+  </div>
 
   <footer>Código aberto em <a href="https://github.com/PedrosHttps/redutor-de-video">github.com/PedrosHttps/redutor-de-video</a></footer>
 </main>
@@ -365,7 +379,8 @@ function load(v) {
       v.width = el.videoWidth; v.height = el.videoHeight;
       el.currentTime = Math.min(1, v.duration / 2 || 0);
     };
-    el.onseeked = () => {
+    const grab = () => {
+      if (ended) return;
       try {
         const s = 240 / Math.max(el.videoWidth, el.videoHeight, 1);
         const c = document.createElement('canvas');
@@ -375,6 +390,8 @@ function load(v) {
       } catch { /* sem miniatura */ }
       finish();
     };
+    // "seeked" pode chegar antes de o quadro estar pronto (miniatura preta); espera o quadro ser exibido.
+    el.onseeked = () => { el.requestVideoFrameCallback?.(grab); setTimeout(grab, 500); };
     el.onerror = finish;
     setTimeout(finish, 10000);
     el.src = url;
