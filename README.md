@@ -57,7 +57,7 @@ Progresso circular, comparação antes → depois e quanto você **economizou**.
 </td>
 <td valign="top">
 
-### 🔄 Atualiza sozinho por cima
+### 🔄 Atualizações por cima
 Assinatura fixa: cada nova versão **instala por cima** da anterior, sem perder nada.
 
 </td>

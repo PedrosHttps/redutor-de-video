@@ -102,6 +102,10 @@
     transition: border-color .2s, background .2s; cursor: pointer;
   }
   .drop.over { border-color: var(--primary); background: var(--surface-2); }
+  .drop { position: relative; }
+  .drop:focus-within { outline: 3px solid color-mix(in srgb, var(--primary) 60%, transparent); outline-offset: 2px; }
+  /* escondido só na tela: continua alcançável por Tab e leitor de tela */
+  .visually-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
   .drop strong { color: var(--primary); }
 
   /* lista */
@@ -187,7 +191,7 @@
     <h2>1. Vídeos</h2>
     <div id="list"></div>
     <label class="drop" id="drop">
-      <input type="file" id="file" accept="video/*" multiple hidden>
+      <input type="file" id="file" accept="video/*" multiple class="visually-hidden">
       <div style="font-size:1.8rem" aria-hidden="true">＋</div>
       <div><strong>Adicionar vídeos</strong> ou arraste para cá</div>
       <div class="muted" style="font-size:.85rem">Seus vídeos não saem do seu aparelho</div>
