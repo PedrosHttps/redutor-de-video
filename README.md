@@ -82,6 +82,14 @@ Assinatura fixa: cada nova versão **instala por cima** da anterior, sem perder 
 
 > Requer **Android 10 ou mais novo**. Os vídeos reduzidos ficam na galeria, em **Filmes/Redutor**.
 
+## 🍎 iPhone e iPad
+
+1. Abra **[pedroshttps.github.io/redutor-de-video](https://pedroshttps.github.io/redutor-de-video/)** no **Safari**.
+2. Toque em **Compartilhar** (o quadrado com a seta ↑) e depois em **Adicionar à Tela de Início**.
+3. Pronto: o **Redutor** aparece com ícone próprio e abre em tela cheia, como um app. Ao terminar, toque em **Salvar na galeria**.
+
+> Requer **iOS 16.4 ou mais novo**. Mantenha o app aberto durante a redução: o iPhone pausa apps da web em segundo plano.
+
 ## 🌐 Versão web
 
 Abra **[pedroshttps.github.io/redutor-de-video](https://pedroshttps.github.io/redutor-de-video/)** no Chrome, Edge ou Safari atualizados. Arraste os vídeos, escolha o nível e baixe o resultado. Funciona no computador e no celular, sem instalar nada.

@@ -6,6 +6,12 @@
 <title>Redutor de Vídeo</title>
 <meta name="description" content="Diminua seus vídeos direto no navegador, sem enviar nada para servidor.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<!-- Instalável como app (Tela de Início no iPhone, "Instalar app" no Android) -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Redutor">
+<meta name="theme-color" content="#4f46e5">
 <style>
   :root {
     --bg: #f6f5fb;
@@ -187,6 +193,11 @@
     <p class="muted" style="margin:0">Use o Chrome, o Edge ou o Safari atualizados, ou baixe o app para Android.</p>
   </section>
 
+  <section class="card enter" id="installIos" hidden>
+    <h2>Instale como app no iPhone</h2>
+    <p class="muted" style="margin:0">Toque em <b>Compartilhar</b> (o quadrado com a seta ↑) e depois em <b>Adicionar à Tela de Início</b>. O Redutor passa a abrir em tela cheia, com ícone próprio.</p>
+  </section>
+
   <section class="card enter" style="animation-delay:.05s">
     <h2>1. Vídeos</h2>
     <div id="list"></div>
@@ -234,6 +245,7 @@
     <details><summary>Como reduzir um vídeo?</summary><p>Toque em Adicionar vídeos (ou arraste), marque o nível e toque em Reduzir. No fim, toque em Baixar.</p></details>
     <details><summary>Qual nível escolher?</summary><p>Baixa: para guardar com a melhor qualidade. Média: o equilíbrio, boa para a maioria. Alta: para mandar por WhatsApp ou e-mail; o vídeo vai para 720p.</p></details>
     <details><summary>Meus vídeos são enviados para algum lugar?</summary><p>Não. Tudo acontece no seu próprio navegador; nenhum vídeo é enviado para servidor.</p></details>
+    <details><summary>No iPhone, como salvo o vídeo na galeria?</summary><p>No fim, toque em Salvar na galeria e escolha Salvar Vídeo. O botão Baixar guarda o arquivo no app Arquivos.</p></details>
     <details><summary>Posso trocar de aba durante a redução?</summary><p>É melhor não: o navegador pode pausar a página. Mantenha a aba aberta; a tela fica acesa sozinha. Para reduzir em segundo plano, use o app Android.</p></details>
     <details><summary>Apareceu "Já estava bem compactado"</summary><p>O vídeo original já era bem leve, e regravar não deixaria menor. Tente o nível Alta.</p></details>
     <details><summary>Deu erro ou não funcionou</summary><p>Atualize o navegador ou tente o Chrome. Vídeos muito grandes (vários GB) podem não caber na memória do navegador; nesse caso, use o app Android.</p></details>
@@ -306,6 +318,11 @@ const state = { videos: [], level: 1, running: false, conv: null, canceled: fals
 let nextId = 0;
 
 if (!('VideoEncoder' in window)) $('unsupported').hidden = false;
+
+// iPhone/iPad (iPadOS se apresenta como Mac com toque): ensina a instalar e a salvar na galeria.
+const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (isIos && !navigator.standalone) $('installIos').hidden = false;
+if (isIos) $('share').textContent = 'Salvar na galeria';
 
 // Níveis
 $('levels').innerHTML = LEVELS.map(([t, d], i) => `
